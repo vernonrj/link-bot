@@ -1,13 +1,13 @@
 var url = require('url');
 var irc = require("irc");
-var nodeio = require("node.io");
-var googl = require('short-url');
+var googl = require('shorturl');
+var request = require('request');
+var cheerio = require('cheerio');
 var _ = require('underscore');
 var settings = require("./settings.json");
 
 var irc_conn = new irc.Client(settings.irc.server, settings.irc.nick, settings.irc.options);
 
-var job = new nodeio.Job();
 
 
 function printLinkTitles(from, to, text){
@@ -17,27 +17,29 @@ function printLinkTitles(from, to, text){
 
   urls.forEach(function(url){
     console.log("URL: " + url);
-    job.getHtml(url, function(err, $, data){
+    request(url, function(err, response, body){
+      console.log('response: ' + url);
       if(err){
         console.log(err);
         return;
       }
       try{
-        var text = $('title').text;
-	if(text){
-            text = text.replace(/[\n\r]/," ").replace(/\s+/g," ").trim();
-	}
-	else{
-            text = ""
+        var $ = cheerio.load(body);
+        var text = $('title').text();
+        if(text){
+          text = text.replace(/[\n\r]/," ").replace(/\s+/g," ").trim();
+        }
+        else{
+          text = ""
         }
 
-          googl.shorten(url, function(err, shortened){
-            var shorted = "";
-            if(!err){
-              shorted = " (" + shortened + ")"
-            }
-            irc_conn.say(to, text+shorted);
-          });
+        googl(url, function(shortened){
+          var shorted = "";
+          if(shortened){
+            shorted = " (" + shortened + ")"
+          }
+          irc_conn.say(to, text+shorted);
+        });
       }
       catch(err){}
     });
